@@ -10,6 +10,8 @@ import ora from 'ora';
 import chalk from 'chalk';
 import figlet from 'figlet';
 import path from 'path';
+import { remark } from 'remark';
+import strip from 'strip-markdown'
 import pdf from 'pdf-parse';
 
 
@@ -17,36 +19,64 @@ import pdf from 'pdf-parse';
 //TODO: add commandline parsing
 //TODO: support more file types
 //TODO: add server
-//
 
 const ai = genkit({
-  plugins: [
-    googleAI(),
-    devLocalVectorstore([
-      {
-        indexName: 'thoughtsQA',
-        embedder: googleAI.embedder('gemini-embedding-001'),
-      },
-    ]),
-  ],
+    plugins: [
+        googleAI(),
+        devLocalVectorstore([
+            {
+                indexName: 'thoughtsQA',
+                embedder: googleAI.embedder('gemini-embedding-001'),
+            },
+        ]),
+    ],
 });
+
 
 export const thoughtsIndexer = devLocalIndexerRef('thoughtsQA');
 
 const chunkingConfig = {
-  minLength: 1000,
-  maxLength: 2000,
-  splitter: 'sentence',
-  overlap: 100,
-  delimiters: '',
+    minLength: 1000,
+    maxLength: 2000,
+    splitter: 'sentence',
+    overlap: 100,
+    delimiters: '',
 } as any;
 
+type ExtractorFn = (filePath: string) => Promise<string>;
+
+export async function extractTextFromMd(filePath: string) {
+    const absolutePath = path.resolve(filePath);
+    const markdownContent = await readFile(absolutePath, 'utf8');
+    const processed = await remark()
+        .use(strip, { keep: ['heading', 'list', 'code'] })
+        .process(markdownContent);
+    return String(processed)
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
 
 async function extractTextFromPdf(filePath: string) {
-  const pdfFile = path.resolve(filePath);
-  const dataBuffer = await readFile(pdfFile);
-  const data = await pdf(dataBuffer);
-  return data.text;
+    const pdfFile = path.resolve(filePath);
+    const dataBuffer = await readFile(pdfFile);
+    const data = await pdf(dataBuffer);
+    return data.text;
+}
+
+const extractors: Record<string, ExtractorFn> = {
+    '.pdf': extractTextFromPdf,
+    '.md': extractTextFromMd,
+};
+
+async function extractTextFromFile(filePath: string): Promise<string> {
+    const ext = path.extname(filePath).toLowerCase();
+    const extractor = extractors[ext];
+
+    if (!extractor) {
+        throw new Error(`Unsupported file type: ${ext}`);
+    }
+
+    return extractor(filePath);
 }
 
 const indexThoughtsSchema = z.discriminatedUnion('type', [
@@ -61,69 +91,69 @@ const indexThoughtsSchema = z.discriminatedUnion('type', [
 ]);
 
 export const indexThoughts = ai.defineFlow(
-  {
-    name: 'indexThoughts',
-    inputSchema: indexThoughtsSchema,
-    outputSchema: z.object({
-      success: z.boolean(),
-      documentsIndexed: z.number(),
-      error: z.string().optional(),
-    }),
-  },
-  async (input) => {
-    try {
-      let textContent: string;
-      let sourceFilePath: string;
+    {
+        name: 'indexThoughts',
+        inputSchema: indexThoughtsSchema,
+        outputSchema: z.object({
+            success: z.boolean(),
+            documentsIndexed: z.number(),
+            error: z.string().optional(),
+        }),
+    },
+    async (input) => {
+        try {
+            let textContent: string;
+            let sourceFilePath: string;
 
-      if (input.type === 'file') {
-        sourceFilePath = path.resolve(input.filePath);
-        textContent = await ai.run('extract-text', () => extractTextFromPdf(sourceFilePath));
-      } else {
-        textContent = input.data;
-        sourceFilePath = 'raw-text-input';
-      }
+            if (input.type === 'file') {
+                sourceFilePath = path.resolve(input.filePath);
+                textContent = await ai.run('extract-text', () => extractTextFromFile(sourceFilePath));
+            } else {
+                textContent = input.data;
+                sourceFilePath = 'raw-text-input';
+            }
 
-      const chunks = await ai.run('chunk-it', async () => chunk(textContent, chunkingConfig));
-      const documents = chunks.map((text) => {
-        return Document.fromText(text, { filePath: sourceFilePath });
-      });
+            const chunks = await ai.run('chunk-it', async () => chunk(textContent, chunkingConfig));
+            const documents = chunks.map((text) => {
+                return Document.fromText(text, { filePath: sourceFilePath });
+            });
 
-      await ai.index({
-        indexer: thoughtsIndexer,
-        documents,
-      });
+            await ai.index({
+                indexer: thoughtsIndexer,
+                documents,
+            });
 
-      return {
-        success: true,
-        documentsIndexed: documents.length,
-      };
-    } catch (err) {
-      return {
-        success: false,
-        documentsIndexed: 0,
-        error: err instanceof Error ? err.message : String(err),
-      };
-    }
-  },
+            return {
+                success: true,
+                documentsIndexed: documents.length,
+            };
+        } catch (err) {
+            return {
+                success: false,
+                documentsIndexed: 0,
+                error: err instanceof Error ? err.message : String(err),
+            };
+        }
+    },
 );
 
 export const thoughtsRetriever = devLocalRetrieverRef('thoughtsQA');
 
 export const thoughtsQAFlow = ai.defineFlow(
-  {
-    name: 'thoughtsQA',
-    inputSchema: z.object({ query: z.string() }),
-    outputSchema: z.object({ answer: z.string() }),
-  },
-  async ({ query }) => {
-    const docs = await ai.retrieve({
-      retriever: thoughtsRetriever,
-      query,
-      options: { k: 3 },
-    });
-    const { text } = await ai.generate({
-      model: googleAI.model('gemini-2.5-flash'),
-      prompt: `
+    {
+        name: 'thoughtsQA',
+        inputSchema: z.object({ query: z.string() }),
+        outputSchema: z.object({ answer: z.string() }),
+    },
+    async ({ query }) => {
+        const docs = await ai.retrieve({
+            retriever: thoughtsRetriever,
+            query,
+            options: { k: 3 },
+        });
+        const { text } = await ai.generate({
+            model: googleAI.model('gemini-2.5-flash'),
+            prompt: `
 You are acting as a helpful AI assistant that can answer
 questions about whatever the user asks 
 
@@ -131,11 +161,11 @@ Use only the context provided to answer the question.
 If you don't know, do not make up an answer.
 
 Question: ${query}`,
-      docs,
-    });
+            docs,
+        });
 
-    return { answer: text };
-  },
+        return { answer: text };
+    },
 );
 
 async function main() {
@@ -169,12 +199,13 @@ async function main() {
                 console.error(chalk.red("Please provide the data to be remembered after the remember command")); 
                 process.exit(1);
             })();;
+
         const fileExtensions = ['.pdf', '.txt', '.doc', '.docx', '.md', '.json'];
         const hasKnownExtension = fileExtensions.some(ext => 
             data.toLowerCase().endsWith(ext)
         );
         let indexer;
-        const spinner = ora('Indexing content into knowledge base...').start();
+        const spinner = ora('Indexing content into knowledge base...\n').start();
         try {
             if (hasKnownExtension) {
                 indexer = await indexThoughts({
@@ -192,7 +223,6 @@ async function main() {
             spinner.fail('Failed to index content.');
             console.error(err);
         }
-        console.log(textColor(indexer));
     }
 }
 
