@@ -1,4 +1,5 @@
 import { googleAI } from '@genkit-ai/google-genai';
+import { join } from 'path';
 import { z, genkit } from 'genkit';
 import { pinecone } from 'genkitx-pinecone';
 import { pineconeRetrieverRef } from 'genkitx-pinecone';
@@ -6,6 +7,7 @@ import { pineconeIndexerRef } from 'genkitx-pinecone';
 import { Document } from 'genkit/retriever';
 import { chunk } from 'llm-chunk';
 import { readFile } from 'fs/promises';
+import{ readFileSync } from 'fs';
 import { Command } from 'commander'
 import ora from 'ora';
 import chalk from 'chalk';
@@ -172,6 +174,8 @@ Question: ${query}`,
 );
 
 async function main() {
+    const fontData = readFileSync(join(__dirname, 'fonts', 'ansi_shadow.flf'), 'utf8');
+    figlet.parseFont('ANSI Shadow', fontData);
     let headerColor = chalk.hex('#da7757');
     let textColor = chalk.hex('#ebdbb2');
     console.log(headerColor(figlet.textSync('GateKeeper', {font: 'ANSI Shadow'})));
