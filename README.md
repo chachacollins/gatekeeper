@@ -21,3 +21,10 @@ bun build --compile ./src/index.ts --outfile gatekeeper
 
 >[!WARNING]
 >DO NOT DELETE THIS REPOSITORY EVEN AFTER YOU HAVE BUILT THIS APP
+
+- You also need to setup pinecone and gemini api keys
+```bash
+export PINECONE_API_KEY=
+export GEMINI_API_KEY=
+```
+
