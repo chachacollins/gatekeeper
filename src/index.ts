@@ -47,26 +47,43 @@ async function extractTextFromPdf(filePath: string) {
   return data.text;
 }
 
+const indexThoughtsSchema = z.discriminatedUnion('type', [
+    z.object({
+        type: z.literal('file'),
+        filePath: z.string().describe('PDF file path'),
+    }),
+    z.object({
+        type: z.literal('text'),
+        data: z.string().describe('raw text to be fed into the rag'),
+    })
+]);
+
 export const indexThoughts = ai.defineFlow(
   {
     name: 'indexThoughts',
-    inputSchema: z.object({ filePath: z.string().describe('PDF file path') }),
+    inputSchema: indexThoughtsSchema,
     outputSchema: z.object({
       success: z.boolean(),
       documentsIndexed: z.number(),
       error: z.string().optional(),
     }),
   },
-  async ({ filePath }) => {
+  async (input) => {
     try {
-      filePath = path.resolve(filePath);
+      let textContent: string;
+      let sourceFilePath: string;
 
-      const pdfTxt = await ai.run('extract-text', () => extractTextFromPdf(filePath));
+      if (input.type === 'file') {
+        sourceFilePath = path.resolve(input.filePath);
+        textContent = await ai.run('extract-text', () => extractTextFromPdf(sourceFilePath));
+      } else {
+        textContent = input.data;
+        sourceFilePath = 'raw-text-input';
+      }
 
-      const chunks = await ai.run('chunk-it', async () => chunk(pdfTxt, chunkingConfig));
-
+      const chunks = await ai.run('chunk-it', async () => chunk(textContent, chunkingConfig));
       const documents = chunks.map((text) => {
-        return Document.fromText(text, { filePath });
+        return Document.fromText(text, { filePath: sourceFilePath });
       });
 
       await ai.index({
@@ -106,7 +123,7 @@ export const thoughtsQAFlow = ai.defineFlow(
       model: googleAI.model('gemini-2.5-flash'),
       prompt: `
 You are acting as a helpful AI assistant that can answer
-questions about malloc
+questions about whatever the user asks 
 
 Use only the context provided to answer the question.
 If you don't know, do not make up an answer.
@@ -135,13 +152,28 @@ async function main() {
         console.log(retriever.answer);
     }
     if (options.remember) {
-        let filePath = typeof options.remember === 'string' 
+        let data = typeof options.remember === 'string' 
             ? options.remember 
             : (() => { 
-                console.error("Please provide a filepath to the data to be remembered after the remember command"); 
+                console.error("Please provide the data to be remembered after the remember command"); 
                 process.exit(1);
             })();;
-        const indexer = await indexThoughts({filePath});
+        const fileExtensions = ['.pdf', '.txt', '.doc', '.docx', '.md', '.json'];
+        const hasKnownExtension = fileExtensions.some(ext => 
+            data.toLowerCase().endsWith(ext)
+        );
+        let indexer;
+        if (hasKnownExtension) {
+            indexer = await indexThoughts({
+                type: 'file',
+                filePath: data
+            });
+        } else {
+            indexer = await indexThoughts({
+                type: 'text',
+                data: data
+            });
+        }
         console.log(indexer);
     }
 }
