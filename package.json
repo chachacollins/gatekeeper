@@ -1,0 +1,24 @@
+{
+  "name": "gatekeeper",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Collins Chacha",
+  "license": "Unlicense",
+  "devDependencies": {
+    "@types/pdf-parse": "^1.1.5",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@genkit-ai/dev-local-vectorstore": "^1.20.0",
+    "@genkit-ai/google-genai": "^1.20.0",
+    "genkit": "^1.20.0",
+    "llm-chunk": "^0.0.1",
+    "pdf-parse": "^1.1.1"
+  }
+}
