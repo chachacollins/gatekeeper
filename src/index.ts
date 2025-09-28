@@ -5,6 +5,8 @@ import { z, genkit } from 'genkit';
 import { Document } from 'genkit/retriever';
 import { chunk } from 'llm-chunk';
 import { readFile } from 'fs/promises';
+import { Command } from 'commander'
+import figlet from 'figlet';
 import path from 'path';
 import pdf from 'pdf-parse';
 
@@ -13,6 +15,7 @@ import pdf from 'pdf-parse';
 //TODO: add commandline parsing
 //TODO: support more file types
 //TODO: add server
+//
 
 const ai = genkit({
   plugins: [
@@ -117,14 +120,30 @@ Question: ${query}`,
 );
 
 async function main() {
-  const indexer = await indexThoughts({
-        filePath: "./test.pdf"
-  });
-  console.log(indexer);
-  const retriever = await thoughtsQAFlow({
-        query: "What rules does malloc comply with?"
-  });
-  console.log(retriever.answer);
+    console.log(figlet.textSync('GateKeeper', {font: 'ANSI Shadow'}));
+    const program = new Command();
+    program
+        .version('1.0.0')
+        .description('A RAG for your own personal knowledge base')
+        .option('-a, --ask [query]', 'Query the RAG for info')
+        .option('-r, --remember [content]', 'Add content to the RAG model to be queried later')
+        .parse(process.argv);
+    const options = program.opts();
+    if (options.ask) {
+        let query = typeof options.ask === 'string' ? options.ask : "What do I do for fun?";
+        const retriever = await thoughtsQAFlow({query});
+        console.log(retriever.answer);
+    }
+    if (options.remember) {
+        let filePath = typeof options.remember === 'string' 
+            ? options.remember 
+            : (() => { 
+                console.error("Please provide a filepath to the data to be remembered after the remember command"); 
+                process.exit(1);
+            })();;
+        const indexer = await indexThoughts({filePath});
+        console.log(indexer);
+    }
 }
 
 main().catch(console.error);
