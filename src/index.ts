@@ -1,7 +1,8 @@
-import { devLocalIndexerRef, devLocalVectorstore } from '@genkit-ai/dev-local-vectorstore';
-import { devLocalRetrieverRef } from '@genkit-ai/dev-local-vectorstore';
 import { googleAI } from '@genkit-ai/google-genai';
 import { z, genkit } from 'genkit';
+import { pinecone } from 'genkitx-pinecone';
+import { pineconeRetrieverRef } from 'genkitx-pinecone';
+import { pineconeIndexerRef } from 'genkitx-pinecone';
 import { Document } from 'genkit/retriever';
 import { chunk } from 'llm-chunk';
 import { readFile } from 'fs/promises';
@@ -15,17 +16,15 @@ import strip from 'strip-markdown'
 import pdf from 'pdf-parse';
 
 
-//TODO: add database
-//TODO: add commandline parsing
 //TODO: support more file types
 //TODO: add server
 
 const ai = genkit({
     plugins: [
         googleAI(),
-        devLocalVectorstore([
+        pinecone([
             {
-                indexName: 'thoughtsQA',
+                indexId: 'thoughts',
                 embedder: googleAI.embedder('gemini-embedding-001'),
             },
         ]),
@@ -33,7 +32,9 @@ const ai = genkit({
 });
 
 
-export const thoughtsIndexer = devLocalIndexerRef('thoughtsQA');
+export const thoughtsIndexer = pineconeIndexerRef({
+  indexId: 'thoughts',
+});
 
 const chunkingConfig = {
     minLength: 1000,
@@ -137,11 +138,13 @@ export const indexThoughts = ai.defineFlow(
     },
 );
 
-export const thoughtsRetriever = devLocalRetrieverRef('thoughtsQA');
+export const thoughtsRetriever = pineconeRetrieverRef({
+    indexId: 'thoughts',
+});
 
-export const thoughtsQAFlow = ai.defineFlow(
+export const thoughtsFlow = ai.defineFlow(
     {
-        name: 'thoughtsQA',
+        name: 'thoughts',
         inputSchema: z.object({ query: z.string() }),
         outputSchema: z.object({ answer: z.string() }),
     },
@@ -184,7 +187,7 @@ async function main() {
         let query = typeof options.ask === 'string' ? options.ask : "What do I do for fun?";
         let spinner = ora('Searching knowledge base...').start();
         try {
-            const retriever = await thoughtsQAFlow({query});
+            const retriever = await thoughtsFlow({query});
             spinner.succeed('Answer retrieved!');
             console.log(textColor(retriever.answer));
         } catch(error) {
@@ -218,10 +221,10 @@ async function main() {
                     data: data
                 });
             }
-            spinner.succeed(`Indexed ${indexer.documentsIndexed} documents successfully.`);
+            spinner.succeed(`Indexed ${indexer.documentsIndexed} chunks successfully.`);
         } catch(error) {
             spinner.fail('Failed to index content.');
-            console.error(err);
+            console.error(error);
         }
     }
 }
