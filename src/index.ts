@@ -7,7 +7,7 @@ import { pineconeIndexerRef } from 'genkitx-pinecone';
 import { Document } from 'genkit/retriever';
 import { chunk } from 'llm-chunk';
 import { readFile } from 'fs/promises';
-import{ readFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { Command } from 'commander'
 import ora from 'ora';
 import chalk from 'chalk';
@@ -35,7 +35,7 @@ const ai = genkit({
 
 
 export const thoughtsIndexer = pineconeIndexerRef({
-  indexId: 'thoughts',
+    indexId: 'thoughts',
 });
 
 const chunkingConfig = {
@@ -159,11 +159,21 @@ export const thoughtsFlow = ai.defineFlow(
         const { text } = await ai.generate({
             model: googleAI.model('gemini-2.5-flash'),
             prompt: `
-You are acting as a helpful AI assistant that can answer
-questions about whatever the user asks 
+I will ask you a question and will provide some additional context information.
+Assume this context information is factual and correct, as part of internal
+documentation.
+If the question relates to the context, answer it using the context.
+If the question does not relate to the context, answer it as normal.
 
-Use only the context provided to answer the question.
-If you don't know, do not make up an answer.
+For example, let's say the context has nothing in it about tropical flowers;
+then if I ask you about tropical flowers, just answer what you know about them
+without referring to the context.
+
+For example, if the context does mention minerology and I ask you about that,
+provide information from the context along with general knowledge.
+
+DO NOT USE MARKDOWN IN YOUR RESPONSES but format the text nicely
+
 
 Question: ${query}`,
             docs,
@@ -178,7 +188,7 @@ async function main() {
     figlet.parseFont('ANSI Shadow', fontData);
     let headerColor = chalk.hex('#da7757');
     let textColor = chalk.hex('#ebdbb2');
-    console.log(headerColor(figlet.textSync('GateKeeper', {font: 'ANSI Shadow'})));
+    console.log(headerColor(figlet.textSync('GateKeeper', { font: 'ANSI Shadow' })));
     const program = new Command();
     program
         .version('1.0.0')
@@ -191,24 +201,24 @@ async function main() {
         let query = typeof options.ask === 'string' ? options.ask : "What do I do for fun?";
         let spinner = ora('Searching knowledge base...').start();
         try {
-            const retriever = await thoughtsFlow({query});
+            const retriever = await thoughtsFlow({ query });
             spinner.succeed('Answer retrieved!');
             console.log(textColor(retriever.answer));
-        } catch(error) {
+        } catch (error) {
             spinner.fail('Failed to retrieve answer.');
             console.error(error);
         }
     }
     if (options.remember) {
-        let data = typeof options.remember === 'string' 
-            ? options.remember 
-            : (() => { 
-                console.error(chalk.red("Please provide the data to be remembered after the remember command")); 
+        let data = typeof options.remember === 'string'
+            ? options.remember
+            : (() => {
+                console.error(chalk.red("Please provide the data to be remembered after the remember command"));
                 process.exit(1);
             })();;
 
         const fileExtensions = ['.pdf', '.txt', '.doc', '.docx', '.md', '.json'];
-        const hasKnownExtension = fileExtensions.some(ext => 
+        const hasKnownExtension = fileExtensions.some(ext =>
             data.toLowerCase().endsWith(ext)
         );
         let indexer;
@@ -226,7 +236,7 @@ async function main() {
                 });
             }
             spinner.succeed(`Indexed ${indexer.documentsIndexed} chunks successfully.`);
-        } catch(error) {
+        } catch (error) {
             spinner.fail('Failed to index content.');
             console.error(error);
         }
