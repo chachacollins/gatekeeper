@@ -6,6 +6,8 @@ import { Document } from 'genkit/retriever';
 import { chunk } from 'llm-chunk';
 import { readFile } from 'fs/promises';
 import { Command } from 'commander'
+import ora from 'ora';
+import chalk from 'chalk';
 import figlet from 'figlet';
 import path from 'path';
 import pdf from 'pdf-parse';
@@ -137,7 +139,9 @@ Question: ${query}`,
 );
 
 async function main() {
-    console.log(figlet.textSync('GateKeeper', {font: 'ANSI Shadow'}));
+    let headerColor = chalk.hex('#da7757');
+    let textColor = chalk.hex('#ebdbb2');
+    console.log(headerColor(figlet.textSync('GateKeeper', {font: 'ANSI Shadow'})));
     const program = new Command();
     program
         .version('1.0.0')
@@ -148,14 +152,21 @@ async function main() {
     const options = program.opts();
     if (options.ask) {
         let query = typeof options.ask === 'string' ? options.ask : "What do I do for fun?";
-        const retriever = await thoughtsQAFlow({query});
-        console.log(retriever.answer);
+        let spinner = ora('Searching knowledge base...').start();
+        try {
+            const retriever = await thoughtsQAFlow({query});
+            spinner.succeed('Answer retrieved!');
+            console.log(textColor(retriever.answer));
+        } catch(error) {
+            spinner.fail('Failed to retrieve answer.');
+            console.error(error);
+        }
     }
     if (options.remember) {
         let data = typeof options.remember === 'string' 
             ? options.remember 
             : (() => { 
-                console.error("Please provide the data to be remembered after the remember command"); 
+                console.error(chalk.red("Please provide the data to be remembered after the remember command")); 
                 process.exit(1);
             })();;
         const fileExtensions = ['.pdf', '.txt', '.doc', '.docx', '.md', '.json'];
@@ -163,18 +174,25 @@ async function main() {
             data.toLowerCase().endsWith(ext)
         );
         let indexer;
-        if (hasKnownExtension) {
-            indexer = await indexThoughts({
-                type: 'file',
-                filePath: data
-            });
-        } else {
-            indexer = await indexThoughts({
-                type: 'text',
-                data: data
-            });
+        const spinner = ora('Indexing content into knowledge base...').start();
+        try {
+            if (hasKnownExtension) {
+                indexer = await indexThoughts({
+                    type: 'file',
+                    filePath: data
+                });
+            } else {
+                indexer = await indexThoughts({
+                    type: 'text',
+                    data: data
+                });
+            }
+            spinner.succeed(`Indexed ${indexer.documentsIndexed} documents successfully.`);
+        } catch(error) {
+            spinner.fail('Failed to index content.');
+            console.error(err);
         }
-        console.log(indexer);
+        console.log(textColor(indexer));
     }
 }
 

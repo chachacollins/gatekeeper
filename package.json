@@ -17,10 +17,12 @@
   "dependencies": {
     "@genkit-ai/dev-local-vectorstore": "^1.20.0",
     "@genkit-ai/google-genai": "^1.20.0",
+    "chalk": "^5.6.2",
     "commander": "^14.0.1",
     "figlet": "^1.9.3",
     "genkit": "^1.20.0",
     "llm-chunk": "^0.0.1",
+    "ora": "^9.0.0",
     "pdf-parse": "^1.1.1"
   }
 }
