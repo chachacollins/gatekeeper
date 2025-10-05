@@ -1,4 +1,5 @@
 import { googleAI } from '@genkit-ai/google-genai';
+import path, {join} from 'path';
 import { z, genkit } from 'genkit';
 import { pinecone } from 'genkitx-pinecone';
 import { pineconeRetrieverRef } from 'genkitx-pinecone';
@@ -159,9 +160,6 @@ without referring to the context.
 
 For example, if the context does mention minerology and I ask you about that,
 provide information from the context along with general knowledge.
-
-DO NOT USE MARKDOWN IN YOUR RESPONSES but format the text nicely
-
 
 Question: ${query}`,
             docs,
