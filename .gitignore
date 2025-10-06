@@ -1,4 +1,4 @@
-*.pdf
-test.md
-node_modules/
-dist/
+core/*.pdf
+core/test.*
+core/node_modules/
+core/uploads/

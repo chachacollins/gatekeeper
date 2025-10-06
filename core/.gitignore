@@ -1,0 +1,5 @@
+*.pdf
+test.md
+node_modules/
+dist/
+upload/
