@@ -5,9 +5,11 @@ import (
 	"io"
 	"time"
 	"log"
+	"os/exec"
 	"strings"
 	"bytes"
 	"encoding/json"
+	"net"
 	"net/http"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/glamour"
@@ -463,10 +465,35 @@ func (m model) View() string {
 	)
 }
 
-func main() {
-	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
+func isPortOpen(host string, port int) bool {
+    address := fmt.Sprintf("%s:%d", host, port)
+    timeout := 2 * time.Second
+    
+    conn, err := net.DialTimeout("tcp", address, timeout)
+    if err != nil {
+        return false
+    }
+    conn.Close()
+    return true
+}
 
+func main() {
+	if !isPortOpen("localhost",6969) {
+		go func() {
+			cmd := exec.Command("/home/alchemist/.local/bin/gatekeeper", "--serve");
+			err := cmd.Run()
+			if err != nil {
+				fmt.Println("Error:", err)
+			}
+		}()
+	}
+	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
+	}
+	cmd := exec.Command("pkill", "gatekeeper");
+	err := cmd.Run()
+	if err != nil {
+		fmt.Println("Error:", err)
 	}
 }

@@ -4,9 +4,19 @@ import { thoughtsQuery, thoughtsRemember } from './llm.ts';
 import { Command } from 'commander'
 import { readFileSync } from 'fs';
 import express from 'express';
+import { spawn } from 'child_process';
 import ora from 'ora';
 import chalk from 'chalk';
 import figlet from 'figlet';
+
+const header = `
+ ██████╗  █████╗ ████████╗███████╗██╗  ██╗███████╗███████╗██████╗ ███████╗██████╗ 
+██╔════╝ ██╔══██╗╚══██╔══╝██╔════╝██║ ██╔╝██╔════╝██╔════╝██╔══██╗██╔════╝██╔══██╗
+██║  ███╗███████║   ██║   █████╗  █████╔╝ █████╗  █████╗  ██████╔╝█████╗  ██████╔╝
+██║   ██║██╔══██║   ██║   ██╔══╝  ██╔═██╗ ██╔══╝  ██╔══╝  ██╔═══╝ ██╔══╝  ██╔══██╗
+╚██████╔╝██║  ██║   ██║   ███████╗██║  ██╗███████╗███████╗██║     ███████╗██║  ██║
+ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝╚═╝     ╚══════╝╚═╝  ╚═╝
+`
 
 async function askLLM(query: string): string {
     let spinner = ora('Searching knowledge base...').start();
@@ -100,20 +110,21 @@ app.post('/remember', upload.single('file'), async (req, res) => {
 
 
 async function main() {
-    const fontData = readFileSync(join(__dirname, 'fonts', 'ansi_shadow.flf'), 'utf8');
-    figlet.parseFont('ANSI Shadow', fontData);
     let headerColor = chalk.hex('#da7757');
     let textColor = chalk.hex('#ebdbb2');
-    console.log(headerColor(figlet.textSync('GateKeeper', { font: 'ANSI Shadow' })));
     const program = new Command();
     program
         .version('1.0.0')
         .description('A RAG for your own personal knowledge base')
         .option('-a, --ask [query]', 'Query the RAG for info')
         .option('-r, --remember [content]', 'Add content to the RAG model to be queried later')
+        .option('-q, --quite', 'do not print the banner')
         .option('-s, --serve [port]', 'Start a server running on the specified port or 6969 by default')
         .parse(process.argv);
     const options = program.opts();
+    //if (options.quiet) {
+        //console.log(headerColor(header));
+    //}
     if (options.ask) {
         let query = typeof options.ask === 'string' ? options.ask : "What do I do for fun?";
         try {
@@ -122,25 +133,27 @@ async function main() {
         } catch (error) {
             console.error(error);
         }
-    }
-    if (options.remember) {
+    } else if (options.remember) {
         let data = typeof options.remember === 'string'
             ? options.remember
             : (() => {
                 console.error(chalk.red("Please provide the data to be remembered after the remember command"));
                 process.exit(1);
             })();;
-        try {
-            await remindLLM(data);
-        } catch (error) {
-            console.error(error);
-        }
-    }
-    if (options.serve) {
+            try {
+                await remindLLM(data);
+            } catch (error) {
+                console.error(error);
+            }
+    } else if (options.serve) {
         let port = typeof options.serve === 'number' ? options.serve : 6969;
         app.listen(port, () => {
             console.log(`App running on port ${port}`);
         })
+    } else {
+        const gateFront = spawn('/home/alchemist/.local/bin/gate-front', [], {
+            stdio: 'inherit'
+        });
     }
 }
 
