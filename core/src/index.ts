@@ -118,14 +118,14 @@ async function main() {
         .description('A RAG for your own personal knowledge base')
         .option('-a, --ask [query]', 'Query the RAG for info')
         .option('-r, --remember [content]', 'Add content to the RAG model to be queried later')
-        .option('-q, --quite', 'do not print the banner')
+        .option('-q, --quiet', 'do not print the banner')
         .option('-s, --serve [port]', 'Start a server running on the specified port or 6969 by default')
         .parse(process.argv);
     const options = program.opts();
-    //if (options.quiet) {
-        //console.log(headerColor(header));
-    //}
     if (options.ask) {
+        if (!options.quiet) {
+            console.log(headerColor(header));
+        }
         let query = typeof options.ask === 'string' ? options.ask : "What do I do for fun?";
         try {
             let answer = await askLLM(query);
@@ -134,6 +134,9 @@ async function main() {
             console.error(error);
         }
     } else if (options.remember) {
+        if (!options.quiet) {
+            console.log(headerColor(header));
+        }
         let data = typeof options.remember === 'string'
             ? options.remember
             : (() => {
@@ -151,7 +154,8 @@ async function main() {
             console.log(`App running on port ${port}`);
         })
     } else {
-        const gateFront = spawn('/home/alchemist/.local/bin/gate-front', [], {
+        const home = process.env.HOME;
+        const gateFront = spawn(home+'/.local/bin/gate-front', [], {
             stdio: 'inherit'
         });
     }

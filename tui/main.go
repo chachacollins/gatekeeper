@@ -6,6 +6,7 @@ import (
 	"time"
 	"log"
 	"os/exec"
+	"os"
 	"strings"
 	"bytes"
 	"encoding/json"
@@ -207,7 +208,7 @@ func helpCommand(m *model, msg string) (tea.Model, tea.Cmd) {
 	help += fmt.Sprintf("\t%s\t%s\n\t", nameStyle.Render("command"), "this allows you to enter commands see /help for more detail")
 	help += fmt.Sprintf("\t%s\t%s\n\t", nameStyle.Render("insert"), "this allows you to type queries for the LLM and commands to the LLM")
 	styledHelp := lipgloss.NewStyle().Foreground(lipgloss.Color("#e0e0e0")).Render(help)
-	m.messages = append(m.messages, m.botStyle.Render("Bot: ")+styledHelp)
+	m.messages = append(m.messages, m.botStyle.Render("Bot:\n")+styledHelp)
 	m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
 	m.textarea.Reset()
 	m.viewport.GotoBottom()
@@ -480,7 +481,8 @@ func isPortOpen(host string, port int) bool {
 func main() {
 	if !isPortOpen("localhost",6969) {
 		go func() {
-			cmd := exec.Command("/home/alchemist/.local/bin/gatekeeper", "--serve");
+			home := os.Getenv("HOME")
+			cmd := exec.Command(home+"/.local/bin/gatekeeper", "--serve")
 			err := cmd.Run()
 			if err != nil {
 				fmt.Println("Error:", err)
@@ -491,7 +493,7 @@ func main() {
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}
-	cmd := exec.Command("pkill", "gatekeeper");
+	cmd := exec.Command("pkill", "gatekeeper")
 	err := cmd.Run()
 	if err != nil {
 		fmt.Println("Error:", err)

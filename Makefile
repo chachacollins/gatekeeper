@@ -1,4 +1,4 @@
-.PHONY: all gatekeeper gate-front install clean run help
+.PHONY: all gatekeeper gate-front install clean help
 
 all: gatekeeper gate-front
 
@@ -18,14 +18,6 @@ clean:
 	rm -f gatekeeper
 	rm -f tui/gate-front
 
-run: gate-front
-	./tui/gate-front
-
-run-gatekeeper: gatekeeper
-	./gatekeeper
-
-dev: gate-front
-	./tui/gate-front
 
 uninstall:
 	rm -f ~/.local/bin/gate-front
@@ -40,7 +32,4 @@ help:
 	@echo "  install        - Install binaries to ~/.local/bin"
 	@echo "  uninstall      - Remove installed binaries"
 	@echo "  clean          - Remove build artifacts"
-	@echo "  run            - Build and run gate-front"
-	@echo "  run-gatekeeper - Build and run gatekeeper"
-	@echo "  dev            - Build and run gate-front (alias)"
 	@echo "  help           - Show this help message"
