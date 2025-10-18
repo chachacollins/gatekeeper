@@ -96,7 +96,6 @@ export const thoughtsRemember = ai.defineFlow(
         try {
             let textContent: string;
             let sourceFilePath: string;
-
             if (input.type === 'file') {
                 sourceFilePath = path.resolve(input.filePath);
                 textContent = await ai.run('extract-text', () => extractTextFromFile(sourceFilePath));
@@ -104,27 +103,37 @@ export const thoughtsRemember = ai.defineFlow(
                 textContent = input.data;
                 sourceFilePath = 'raw-text-input';
             }
-
+            
             const chunks = await ai.run('chunk-it', async () => chunk(textContent, chunkingConfig));
             const documents = chunks.map((text) => {
                 return Document.fromText(text, { filePath: sourceFilePath });
             });
 
-            await ai.index({
-                indexer: thoughtsIndexer,
-                documents,
-            });
+            const BATCH_SIZE = 3;
+            const DELAY_MS = 1000;
+            
+            let totalIndexed = 0;
+            for (let i = 0; i < documents.length; i += BATCH_SIZE) {
+                const batch = documents.slice(i, i + BATCH_SIZE);
+                
+                await ai.index({
+                    indexer: thoughtsIndexer,
+                    documents: batch,
+                });
+                
+                totalIndexed += batch.length;
+                
+                if (i + BATCH_SIZE < documents.length) {
+                    await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+                }
+            }
 
             return {
                 success: true,
-                documentsIndexed: documents.length,
+                documentsIndexed: totalIndexed,
             };
         } catch (err) {
-            return {
-                success: false,
-                documentsIndexed: 0,
-                error: err instanceof Error ? err.message : String(err),
-            };
+            throw new Error(err);
         }
     },
 );
